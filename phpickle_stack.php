@@ -2,6 +2,8 @@
 
 class phpickle_stack
 {
+	private $_mark_cnt = 0;
+
 	public function __construct()
 	{
 		$this->s = array();
@@ -21,6 +23,8 @@ class phpickle_stack
 	{
 		$cl = new stdClass;
 		$cl->__mark__ = 1;
+		$this->_mark_cnt++;
+		$cl->__mark_cnt = $this->_mark_cnt;
 		$this->push($cl);
 	}
 

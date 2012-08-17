@@ -34,8 +34,19 @@ $data = phpickle::loads_django_session($data_from_django_session_db);
 
 ===============Current status:
 
-Well, unpickling simple types, lists, tuples, dicts, ints, strings works, except double right now. Workging on that one. 
-Also, classes are not quite there and of course, referencing any python specific things does not work. 
+Well, unpickling simple types, lists, tuples, dicts, ints, double, strings works.
+Unpickling class instances also works, but of course the instances are not the same as the ones in python. 
+Instead stdClass instances are created, with all the data properties that are in the pickle and a few extra ones as well:
+
+$inst->__python_class__ = "__main__.test";
+$inst->__python_construct_args__ = array();
+
+__python_class__ is the package.class name for the python class that this instance represents. 
+__python_construct_args__ are the contructor arguments for creating the class instance in python.
+
+Of course, referencing really python specific things, line REDUCE op that gives it's argument to a python method to produce a result 
+cannot be supported. 
+
 
 Pickling is not done at all, but should be possible for at least simple types. 
 

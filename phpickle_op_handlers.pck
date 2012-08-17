@@ -1,6 +1,10 @@
 OP: MARK	// ( push special markobject on stack)
 -- read:
 $stack->push_mark();
+if ($debug)
+{
+	echo "MARK: pushed mark ",var_dump($stack->get_top())," \r\n";
+}
 --write:
 
 OP: STOP	// ( every pickle ends with STOP)
@@ -43,6 +47,11 @@ if ($line === "00")
 else
 {
 	$stack->push(intval(trim($line)));
+}
+
+if ($debug)
+{
+	echo  "INT: pushed ".$stack->get_top()." \r\n";
 }
 --write:
 
@@ -120,7 +129,12 @@ else
 {
 	throw new Exception("incorrectly quoted string in pickle: $s");
 }
+$s = stripcslashes($s);
 $stack->push($s);
+if ($debug)
+{
+	echo "STRING: pushed($s) \r\n";
+}
 --write:
 
 OP: BINSTRING	// ( push string; counted binary string argument)
@@ -164,14 +178,26 @@ $stack->push($list);
 OP: BUILD	// ( call __setstate__ or __dict__.update())
 -- read:
 // TODO: not complete
-$stack->pop();
+$dict = $stack->pop();
+$obj = $stack->pop();
+foreach($dict as $k => $v)
+{
+	$obj->$k = $v;
+}
+$stack->push($obj);
+if ($debug)
+{
+	echo "BUILD: to object ",var_dump($obj)," added dict ",var_dump($dict)," \r\n";
+}
 --write:
 
 OP: GLOBAL	// ( push self.find_class(modname, name); 2 string args)
 -- read:
 $module = $stream->get_line();
 $name = $stream->get_line();
-$stack->push($module."::".$name);
+$obj = new stdClass();
+$obj->__python_class__ = $module.".".$name;
+$stack->push($obj);
 if ($debug)
 {
 	echo "GLOBAL: module($module), name($name) \r\n";
@@ -188,6 +214,10 @@ for ($i = 0; $i < $len; $i+=2)
 	$d[$vals[$i]] = $vals[$i+1];
 }
 $stack->push($d);
+if ($debug)
+{
+	echo "DICT: pushed dict ",var_dump($d)," \r\n";
+}
 --write:
 
 OP: EMPTY_DICT	// ( push empty dict)
@@ -210,6 +240,10 @@ OP: GET	// ( push item from memo on stack; index is string arg)
 -- read:
 $index = intval(trim($stream->get_line()));
 $stack->push($memo->get($index));
+if ($debug)
+{
+	echo "GET: pushed value ",var_dump($memo->get($index))," \r\n";
+}
 --write:
 
 OP: BINGET	// (   "    "    "    "   "   "  ;   "    " 1-byte arg)
@@ -223,9 +257,15 @@ OP: INST	// ( build & push class instance)
 $module = $stream->get_line();
 $name = $stream->get_line();
 $cl = new stdClass;
-$cl->module = $module;
-$cl->name = $name;
+$cl->__python_class__  = $module.".".$name;
+
+$args = $stack->pop_until_mark();
+$cl->__python_construct_args__ = $args;
 $stack->push($cl);
+if ($debug)
+{
+	echo "INST: pushed stdclass with name ".$cl->__python_class__."\r\n";
+}
 --write:
 
 OP: LONG_BINGET	// ( push item from memo on stack; index is 4-byte arg)
@@ -258,6 +298,10 @@ OP: PUT	// ( store stack top in memo; index is string arg)
 -- read:
 $index = intval(trim($stream->get_line()));
 $memo->set($index, $stack->get_top());
+if ($debug)
+{
+	echo "PUT: memo($index) => ",var_dump($stack->get_top()),"\r\n";
+}
 --write:
 
 OP: BINPUT	// (   "     "    "   "   " ;   "    " 1-byte arg)
@@ -279,15 +323,19 @@ $memo->set($index, $stack->get_top());
 
 OP: SETITEM	// ( add key+value pair to dict)
 -- read:
+if ($debug)
+{
+	echo "stack: ",var_dump($stack)," \r\n";
+}
 $value = $stack->pop();
 $key = $stack->pop();
 $dict = $stack->pop();
-$dict[$key] = $value;
-$stack->push($dict);
 if ($debug)
 {
-	echo "SETITEM: adding key($key) => value($value) to dict ",var_dump($dict)," \r\n";
+	echo "SETITEM: adding key(",var_dump($key),") => value(",var_dump($value),") to dict ",var_dump($dict)," \r\n";
 }
+$dict[$key] = $value;
+$stack->push($dict);
 --write:
 
 OP: TUPLE	// ( build tuple from topmost stack items)
@@ -295,6 +343,10 @@ OP: TUPLE	// ( build tuple from topmost stack items)
 // find mark from stack, make numbered array from items until that
 $vals = $stack->pop_until_mark();
 $stack->push($vals);
+if ($debug)
+{
+	echo "TUPLE: pushed ",var_dump($vals)," \r\n";
+}
 --write:
 
 OP: EMPTY_TUPLE	// ( push empty tuple)
@@ -316,7 +368,8 @@ $stack->push($d);
 
 OP: BINFLOAT	// ( push float; arg is 8-byte float encoding)
 -- read:
-$av = unpack("dval", $stream->get_bytes(8));
+$bytes = $stream->get_bytes(8);
+$av = unpack("dval", strrev($bytes));
 $stack->push($av["val"]);
 --write:
 
@@ -393,13 +446,25 @@ OP: LONG1	// push long from < 256 bytes
 // TODO: not exact
 $len = ord($stream->get_char());
 $data = $stream->get_bytes($len);
-// push as string, because we can't handle long numbers
-$str = "";
-for($i = 0; $i < $len; $i++)
+if ($len < 5)	// we can handle 4 byte numbers max
 {
-	$str .= chr($data[$i]);
+	while ($len < 5)
+	{
+		$data .= "\x00";
+		$len++;
+	}
+	$av = unpack("Lval", $data);
+	$stack->push($av["val"]);
 }
-$stack->push($str);
+else
+{
+	// push as string, because we can't handle long numbers
+	$stack->push($data);
+}
+if ($debug)
+{
+	echo  "LONG1: len($len), data: ",var_dump($data),"  value: ".$stack->get_top()."\r\n";
+}
 --write:
 
 OP: LONG4	// push really big long

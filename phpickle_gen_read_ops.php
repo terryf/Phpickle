@@ -5,6 +5,10 @@ class phpickle_read_ops
 		function op_MARK($stream, $stack, $memo, $debug)
 		{
 			$stack->push_mark();
+			if ($debug)
+			{
+				echo "MARK: pushed mark ",var_dump($stack->get_top())," \r\n";
+			}
 
 		}
 		// generated for OP: STOP	// ( every pickle ends with STOP)
@@ -53,6 +57,11 @@ class phpickle_read_ops
 			else
 			{
 				$stack->push(intval(trim($line)));
+			}
+			
+			if ($debug)
+			{
+				echo  "INT: pushed ".$stack->get_top()." \r\n";
 			}
 
 		}
@@ -139,7 +148,12 @@ class phpickle_read_ops
 			{
 				throw new Exception("incorrectly quoted string in pickle: $s");
 			}
+			$s = stripcslashes($s);
 			$stack->push($s);
+			if ($debug)
+			{
+				echo "STRING: pushed($s) \r\n";
+			}
 
 		}
 		// generated for OP: BINSTRING	// ( push string; counted binary string argument)
@@ -189,7 +203,17 @@ class phpickle_read_ops
 		function op_BUILD($stream, $stack, $memo, $debug)
 		{
 			// TODO: not complete
-			$stack->pop();
+			$dict = $stack->pop();
+			$obj = $stack->pop();
+			foreach($dict as $k => $v)
+			{
+				$obj->$k = $v;
+			}
+			$stack->push($obj);
+			if ($debug)
+			{
+				echo "BUILD: to object ",var_dump($obj)," added dict ",var_dump($dict)," \r\n";
+			}
 
 		}
 		// generated for OP: GLOBAL	// ( push self.find_class(modname, name); 2 string args)
@@ -197,7 +221,9 @@ class phpickle_read_ops
 		{
 			$module = $stream->get_line();
 			$name = $stream->get_line();
-			$stack->push($module."::".$name);
+			$obj = new stdClass();
+			$obj->__python_class__ = $module.".".$name;
+			$stack->push($obj);
 			if ($debug)
 			{
 				echo "GLOBAL: module($module), name($name) \r\n";
@@ -215,6 +241,10 @@ class phpickle_read_ops
 				$d[$vals[$i]] = $vals[$i+1];
 			}
 			$stack->push($d);
+			if ($debug)
+			{
+				echo "DICT: pushed dict ",var_dump($d)," \r\n";
+			}
 
 		}
 		// generated for OP: EMPTY_DICT	// ( push empty dict)
@@ -240,6 +270,10 @@ class phpickle_read_ops
 		{
 			$index = intval(trim($stream->get_line()));
 			$stack->push($memo->get($index));
+			if ($debug)
+			{
+				echo "GET: pushed value ",var_dump($memo->get($index))," \r\n";
+			}
 
 		}
 		// generated for OP: BINGET	// (   "    "    "    "   "   "  ;   "    " 1-byte arg)
@@ -255,9 +289,15 @@ class phpickle_read_ops
 			$module = $stream->get_line();
 			$name = $stream->get_line();
 			$cl = new stdClass;
-			$cl->module = $module;
-			$cl->name = $name;
+			$cl->__python_class__  = $module.".".$name;
+			
+			$args = $stack->pop_until_mark();
+			$cl->__python_construct_args__ = $args;
 			$stack->push($cl);
+			if ($debug)
+			{
+				echo "INST: pushed stdclass with name ".$cl->__python_class__."\r\n";
+			}
 
 		}
 		// generated for OP: LONG_BINGET	// ( push item from memo on stack; index is 4-byte arg)
@@ -295,6 +335,10 @@ class phpickle_read_ops
 		{
 			$index = intval(trim($stream->get_line()));
 			$memo->set($index, $stack->get_top());
+			if ($debug)
+			{
+				echo "PUT: memo($index) => ",var_dump($stack->get_top()),"\r\n";
+			}
 
 		}
 		// generated for OP: BINPUT	// (   "     "    "   "   " ;   "    " 1-byte arg)
@@ -319,15 +363,19 @@ class phpickle_read_ops
 		// generated for OP: SETITEM	// ( add key+value pair to dict)
 		function op_SETITEM($stream, $stack, $memo, $debug)
 		{
+			if ($debug)
+			{
+				echo "stack: ",var_dump($stack)," \r\n";
+			}
 			$value = $stack->pop();
 			$key = $stack->pop();
 			$dict = $stack->pop();
-			$dict[$key] = $value;
-			$stack->push($dict);
 			if ($debug)
 			{
-				echo "SETITEM: adding key($key) => value($value) to dict ",var_dump($dict)," \r\n";
+				echo "SETITEM: adding key(",var_dump($key),") => value(",var_dump($value),") to dict ",var_dump($dict)," \r\n";
 			}
+			$dict[$key] = $value;
+			$stack->push($dict);
 
 		}
 		// generated for OP: TUPLE	// ( build tuple from topmost stack items)
@@ -336,6 +384,10 @@ class phpickle_read_ops
 			// find mark from stack, make numbered array from items until that
 			$vals = $stack->pop_until_mark();
 			$stack->push($vals);
+			if ($debug)
+			{
+				echo "TUPLE: pushed ",var_dump($vals)," \r\n";
+			}
 
 		}
 		// generated for OP: EMPTY_TUPLE	// ( push empty tuple)
@@ -360,7 +412,8 @@ class phpickle_read_ops
 		// generated for OP: BINFLOAT	// ( push float; arg is 8-byte float encoding)
 		function op_BINFLOAT($stream, $stack, $memo, $debug)
 		{
-			$av = unpack("fval", $stream->get_bytes(8));
+			$bytes = $stream->get_bytes(8);
+			$av = unpack("dval", strrev($bytes));
 			$stack->push($av["val"]);
 
 		}
@@ -448,13 +501,25 @@ class phpickle_read_ops
 			// TODO: not exact
 			$len = ord($stream->get_char());
 			$data = $stream->get_bytes($len);
-			// push as string, because we can't handle long numbers
-			$str = "";
-			for($i = 0; $i < $len; $i++)
+			if ($len < 5)	// we can handle 4 byte numbers max
 			{
-				$str .= chr($data[$i]);
+				while ($len < 5)
+				{
+					$data .= "\x00";
+					$len++;
+				}
+				$av = unpack("Lval", $data);
+				$stack->push($av["val"]);
 			}
-			$stack->push($str);
+			else
+			{
+				// push as string, because we can't handle long numbers
+				$stack->push($data);
+			}
+			if ($debug)
+			{
+				echo  "LONG1: len($len), data: ",var_dump($data),"  value: ".$stack->get_top()."\r\n";
+			}
 
 		}
 		// generated for OP: LONG4	// push really big long

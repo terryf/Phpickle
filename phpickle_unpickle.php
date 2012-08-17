@@ -95,9 +95,9 @@ class phpickle_unpickle
 	public function loads_django_session($str)
 	{
 		$str = base64_decode($str);
-		echo "str = $str  \r\n";
+		//echo "str = $str  \r\n";
 		list($hash, $pickle) = explode(":", $str, 2);
-		echo "hash: $hash, pickle: $pickle \r\n";
+		//echo "hash: $hash, pickle: $pickle \r\n";
 		return $this->loads($pickle);
 	}
 

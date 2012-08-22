@@ -55,7 +55,23 @@ EOD;
 	}
 
 
-	private function _process_op_content($op, $op_line, $stream)
+	private function _process_read_op_content($op, $op_line, $stream)
+	{
+		$ct = $this->_read_op_content($stream);
+
+$tmpl = <<<EOD
+		// generated for $op_line
+		function op_$op(\$stream, \$stack, \$memo, \$debug)
+		{
+$ct
+		}
+
+EOD;
+
+		return $tmpl;
+	}
+
+	private function _read_op_content($stream)
 	{
 		$ct = "";
 		while (!$stream->eof())
@@ -83,12 +99,19 @@ EOD;
 			}
 			$ct .= "\t\t\t".$line."\r\n";
 		}
+		return $ct;
+	}
+
+	private function _process_write_op_content($op, $op_line, $stream)
+	{
+		$ct = $this->_read_op_content($stream);
 
 
 $tmpl = <<<EOD
 		// generated for $op_line
-		function op_$op(\$stream, \$stack, \$memo, \$debug)
+		function op_$op(\$value, &\$stream, \$stack, \$memo, \$debug, \$mapper)
 		{
+			\$stream->write(\$mapper->str2bin("$op"));
 $ct
 		}
 
@@ -96,6 +119,7 @@ EOD;
 
 		return $tmpl;
 	}
+
 
 	private function _process_op($op_line, $stream)
 	{
@@ -134,12 +158,12 @@ EOD;
 			else
 			if (substr($line, 0, strlen("-- read:")) == "-- read:")
 			{
-				$read = $this->_process_op_content($op, $op_line, $stream);
+				$read = $this->_process_read_op_content($op, $op_line, $stream);
 			}
 			else
 			if (substr($line, 0, strlen("--write:")) == "--write:")
 			{
-				$write = $this->_process_op_content($op, $op_line, $stream);
+				$write = $this->_process_write_op_content($op, $op_line, $stream);
 			}
 			else
 			{

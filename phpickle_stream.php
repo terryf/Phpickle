@@ -107,6 +107,26 @@ class phpickle_stream
 		return $this->unget_char();
 	}
 
+	public function write($bytes)
+	{
+		if (!$this->handle)
+		{
+			return false;
+		}
+		$this->_update_pos();
+		return fwrite($this->handle, $bytes);
+	}
+
+	public function write_line($str)
+	{
+		if (!$this->handle)
+		{
+			return false;
+		}
+		$this->_update_pos();
+		return fwrite($this->handle, $str."\r\n");
+	}
+
 	public function eof()
 	{
 		if (!$this->handle)
@@ -114,6 +134,16 @@ class phpickle_stream
 			return true;
 		}
 		return feof($this->handle);
+	}
+
+	public function get_contents()
+	{
+		if (!$this->handle)
+		{
+			return false;
+		}
+		fseek($this->handle, 0);
+		return fread($this->handle, 1000000);
 	}
 
 	private function _update_pos()

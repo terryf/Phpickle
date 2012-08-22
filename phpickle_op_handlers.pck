@@ -6,7 +6,6 @@ if ($debug)
 	echo "MARK: pushed mark ",var_dump($stack->get_top())," \r\n";
 }
 --write:
-
 OP: STOP	// ( every pickle ends with STOP)
 -- read:
 throw new Exception("STOP");
@@ -31,6 +30,7 @@ OP: FLOAT	// ( push float object; decimal string argument)
 -- read:
 $stack->push(floatval($stream->get_line()));
 --write:
+$stream->write_line((string)$value);
 
 OP: INT	// ( push integer or bool; decimal string argument)
 -- read:
@@ -54,12 +54,14 @@ if ($debug)
 	echo  "INT: pushed ".$stack->get_top()." \r\n";
 }
 --write:
+$stream->write_line((string)$value);
 
 OP: BININT	// ( push four-byte signed int)
 -- read:
 $av = unpack("lint", $stream->get_bytes(4));
 $stack->push($av["int"]);
 --write:
+$stream->write(pack("l", $value));
 
 OP: BININT1	// ( push 1-byte unsigned int)
 -- read:
@@ -70,6 +72,7 @@ if ($debug)
 	echo "BININT1: val: $av[int] \r\n";
 }
 --write:
+$stream->write(pack("C", $value));
 
 OP: LONG	// ( push long; decimal string argument)
 -- read:
@@ -80,12 +83,15 @@ if (substr($line, -1) == "L")
 }
 $stack->push(intval(trim($line)));
 --write:
+$stream->write_line(((string)$value)."L");
 
 OP: BININT2	// ( push 2-byte unsigned int)
 -- read:
 $av = unpack("lint", $stream->get_bytes(2)."\x00\x00");
 $stack->push($av["int"]);
 --write:
+$v = pack("l", $value);
+$stream->write($v[0].$v[1]);
 
 OP: NONE	// ( push None)
 -- read:
@@ -98,12 +104,14 @@ OP: PERSID	// ( push persistent object; id is taken from string arg)
 $stream->get_line();
 $stack->push(NULL);
 --write:
+$stream->write_line($value);
 
 OP: BINPERSID	// (  "       "         "  ;  "  "   "     "  stack)
 -- read:
 $stack->pop();
 $stack->push(null);
 --write:
+// TODO
 
 OP: REDUCE	// ( apply callable to argtuple, both on stack)
 -- read:
@@ -116,6 +124,7 @@ if ($debug)
 	echo "REDUCE: arg1(",var_dump($d1),"), arg2(",var_dump($d2),") \r\n";
 }
 --write:
+// TODO 
 
 OP: STRING	// ( push string; NL-terminated string argument)
 -- read:
@@ -136,6 +145,7 @@ if ($debug)
 	echo "STRING: pushed($s) \r\n";
 }
 --write:
+$stream->write_line("\"".addcslashes($value)."\"");
 
 OP: BINSTRING	// ( push string; counted binary string argument)
 -- read:
@@ -143,6 +153,9 @@ $av = unpack("Lval", $stream->get_bytes(4));
 $len = $av["val"];
 $stack->push($stream->get_bytes($len));
 --write:
+$len = strlen($value);
+$stream->write(pack("L", $len));
+$stream->write($value);
 
 OP: SHORT_BINSTRING	//  "     "   ;    "      "       "      " < 256 bytes
 -- read:
@@ -153,12 +166,16 @@ if ($debug)
 	echo "SHORT_BINSTRING: len: $len, str: ".$stack->get_top()." \r\n";
 }
 --write:
+$len = strlen($value);
+$stream->write(pack("C", $len));
+$stream->write($value);
 
 OP: UNICODE	// ( push Unicode string; raw-unicode-escaped'd argument)
 -- read:
 // TODO: not quite
 $stack->push($stream->get_line());
 --write:
+$stream->write_line($value);
 
 OP: BINUNICODE	// (   "     "       "  ; counted UTF-8 string argument)
 -- read:
@@ -166,6 +183,9 @@ $av = unpack("Lval", $stream->get_bytes(4));
 $len = $av["val"];
 $stack->push($stream->get_bytes($len));
 --write:
+$len = strlen($value);
+$stream->write(pack("L", $len));
+$stream->write($value);
 
 OP: APPEND	// ( append stack top to list below it)
 -- read:
@@ -203,6 +223,9 @@ if ($debug)
 	echo "GLOBAL: module($module), name($name) \r\n";
 }
 --write:
+list($module, $name) = explode(".", $value->__python_class__);
+$stream->write_line($module);
+$stream->write_line($name);
 
 OP: DICT	// ( build a dict from stack items)
 -- read:
@@ -245,12 +268,14 @@ if ($debug)
 	echo "GET: pushed value ",var_dump($memo->get($index))," \r\n";
 }
 --write:
+$stream->write_line($value);
 
 OP: BINGET	// (   "    "    "    "   "   "  ;   "    " 1-byte arg)
 -- read:
 $index = ord($stream->get_byte());
 $stack->push($memo->get($index));
 --write:
+$stream->write(ord($value));
 
 OP: INST	// ( build & push class instance)
 -- read:
@@ -267,6 +292,9 @@ if ($debug)
 	echo "INST: pushed stdclass with name ".$cl->__python_class__."\r\n";
 }
 --write:
+list($module, $name) = explode(".", $value->__python_class__);
+$stream->write_line($module);
+$stream->write_line($name);
 
 OP: LONG_BINGET	// ( push item from memo on stack; index is 4-byte arg)
 -- read:
@@ -275,6 +303,7 @@ $index = $av["val"];
 $stack->push($memo->get($index));
 
 --write:
+$stream->write(pack("L", $value));
 
 OP: LIST	// ( build list from topmost stack items)
 -- read:
@@ -303,6 +332,7 @@ if ($debug)
 	echo "PUT: memo($index) => ",var_dump($stack->get_top()),"\r\n";
 }
 --write:
+$stream->write_line($value);
 
 OP: BINPUT	// (   "     "    "   "   " ;   "    " 1-byte arg)
 -- read:
@@ -313,6 +343,7 @@ if ($debug)
 	echo "BINPUT: setting memo index($index) to ",var_dump($stack->get_top())," \r\n";
 }
 --write:
+$stream->write(pack("C", $value));
 
 OP: LONG_BINPUT	// (   "     "    "   "   " ;   "    " 4-byte arg)
 -- read:
@@ -320,6 +351,7 @@ $av = unpack("Lval", $stream->get_bytes(4));
 $index = $av["val"];
 $memo->set($index, $stack->get_top());
 --write:
+$stream->write(pack("L", $value));
 
 OP: SETITEM	// ( add key+value pair to dict)
 -- read:
@@ -372,6 +404,7 @@ $bytes = $stream->get_bytes(8);
 $av = unpack("dval", strrev($bytes));
 $stack->push($av["val"]);
 --write:
+$stream->write(strrev(pack("d", $value)));
 
 OP: PROTO	// identify pickle protocol
 -- read:
@@ -381,6 +414,7 @@ if ($debug)
 	echo "read protocol version as ".$stack->proto." \r\n";
 }
 --write:
+$stream->write(pack("C", $value));
 
 OP: NEWOBJ	// build object by applying cls.__new__ to argtuple
 -- read:
@@ -397,6 +431,7 @@ OP: EXT1	// push object from extension registry; 1-byte index
 $code = $stream->get_byte();
 $stack->push(new stdClass);
 --write:
+$stream->write(pack("C", $value));
 
 OP: EXT2	// ditto, but 2-byte index
 -- read:
@@ -404,6 +439,7 @@ OP: EXT2	// ditto, but 2-byte index
 $code = $stream->get_bytes(2);
 $stack->push(new stdClass);
 --write:
+$stream->write(substr(pack("L", $value), 0, 2));
 
 OP: EXT4	// ditto, but 4-byte index
 -- read:
@@ -411,6 +447,7 @@ OP: EXT4	// ditto, but 4-byte index
 $code = $stream->get_bytes(4);
 $stack->push(new stdClass);
 --write:
+$stream->write(pack("L", $value));
 
 OP: TUPLE1	// build 1-tuple from stack top
 -- read:
@@ -466,6 +503,9 @@ if ($debug)
 	echo  "LONG1: len($len), data: ",var_dump($data),"  value: ".$stack->get_top()."\r\n";
 }
 --write:
+// TODO: handle long numbers in string?
+$stream->write(pack("C", 4));
+$stream->write(pack("L", $value));
 
 OP: LONG4	// push really big long
 -- read:
@@ -480,6 +520,9 @@ for($i = 0; $i < $len; $i++)
 }
 $stack->push($str);
 --write:
+// TODO: handle long numbers in string?
+$stream->write(pack("L", 4));
+$stream->write(pack("L", $value));
 
 
 // Protocol 3 (Python 3.x)
@@ -490,10 +533,14 @@ $av = unpack("Lval", $stream->get_bytes(4));
 $len = $av["val"];
 $stack->push($stream->get_bytes($len));
 --write:
+$stream->write(pack("L", strlen($value)));
+$stream->write($value);
 
 OP: SHORT_BINBYTES	// (  "     "   ;    "      "       "      " < 256 bytes)
 -- read:
 $len = ord($stream->get_char());
 $stack->push($stream->get_bytes($len));
 --write:
+$stream->write(pack("C", strlen($value)));
+$stream->write($value);
 

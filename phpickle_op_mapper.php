@@ -79,7 +79,7 @@ class phpickle_op_mapper
 		$val = array_search($op, $this->_pickle_op_codes);
 		if ($val !== false)
 		{
-			return $this->_pickle_op_codes[$op];
+			return $val;
 		}
 		throw new Exception("op not found for op ".ord($op));
 	}

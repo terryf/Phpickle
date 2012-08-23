@@ -1,7 +1,7 @@
 
-Phpickle is a set of PHP classes that allow you to read and write the python pickle format. 
-It is useful for integrating python and php applications together, for example to read django
-session data from a php application. 
+Phpickle is a set of PHP classes that allow you to read and write the python 
+pickle format. It is useful for integrating python and php applications together, 
+for example to read django session data from a php application. 
 
 ==============Basic usage:
 
@@ -44,9 +44,9 @@ $string = phpickle::dumps($data_to_pickle);
 ===============Current status:
 
 Well, unpickling simple types, lists, tuples, dicts, ints, double, strings works.
-Unpickling class instances also works, but of course the instances are not the same as the ones 
-in python. Instead stdClass instances are created, with all the data properties that are in the 
-pickle and a few extra ones as well:
+Unpickling class instances also works, but of course the instances are not the same 
+as the ones in python. Instead stdClass instances are created, with all the data 
+properties that are in the pickle and a few extra ones as well:
 
 $inst->__python_class__ = "__main__.test";
 $inst->__python_construct_args__ = array();
@@ -54,13 +54,13 @@ $inst->__python_construct_args__ = array();
 __python_class__ is the package.class name for the python class that this instance represents. 
 __python_construct_args__ are the contructor arguments for creating the class instance in python.
 
-Of course, referencing really python specific things, line REDUCE op that gives it's argument to a 
-python method to produce a result cannot be supported. 
+Of course, referencing really python specific things, line REDUCE op that gives it's 
+argument to a python method to produce a result cannot be supported. 
 
 
-Pickling support is there for simple types and arrays. Experimental support for objects is 
-also there. Pickling back from previously unpickled data should produce the same result most 
-of the time, but needs better test coverage. 
+Pickling support is there for simple types and arrays. Experimental support for 
+objects is also there. Pickling back from previously unpickled data should produce 
+the same result most of the time, but needs better test coverage. 
 
 
 
@@ -68,12 +68,12 @@ of the time, but needs better test coverage.
 
 tests folder has phpunit based tests for some of the modules. 
 
-Pickle is a very simple stack based language, the interpreter is in phpickle_unpickle.php 
-and the read/write handlers for different opcodes are in the phpickle_op_handlers.pck. To generate 
-the interpreter files, run make gen, that will generate phpickle_gen_read_ops.php and 
-phpickle_gen_write_ops.php
+Pickle is a very simple stack based language, the interpreter is in 
+phpickle_unpickle.php and the read/write handlers for different opcodes are 
+in the phpickle_op_handlers.pck. To generate the interpreter files, run 
+make gen, that will generate phpickle_gen_read_ops.php and phpickle_gen_write_ops.php
 
-To debug unpickling, call phpickle_unpickler->set_debug(true) and in the read jandler code, 
-just to if ($debug). In the handler code, you can read data from the $stream, using phpickle_stream 
-methods and push results into $stack that is a phpickle_stack instance. $memo is for 
-memorizing things. 
+To debug unpickling, call phpickle_unpickler->set_debug(true) and in the read 
+handler code, just to if ($debug). In the handler code, you can read data from the 
+$stream, using phpickle_stream methods and push results into $stack that is a 
+phpickle_stack instance. $memo is for memorizing things. 

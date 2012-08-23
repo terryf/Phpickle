@@ -35,6 +35,16 @@ class phpickle_read_ops
 			$stack->push($stack->get_top());
 
 		}
+		// generated for OP: TRUE
+		function op_TRUE($stream, $stack, $memo, $debug)
+		{
+
+		}
+		// generated for OP: FALSE
+		function op_FALSE($stream, $stack, $memo, $debug)
+		{
+
+		}
 		// generated for OP: FLOAT	// ( push float object; decimal string argument)
 		function op_FLOAT($stream, $stack, $memo, $debug)
 		{
@@ -187,7 +197,7 @@ class phpickle_read_ops
 		{
 			$av = unpack("Lval", $stream->get_bytes(4));
 			$len = $av["val"];
-			$stack->push($stream->get_bytes($len));
+			$stack->push($len > 0 ? $stream->get_bytes($len) : "");
 
 		}
 		// generated for OP: APPEND	// ( append stack top to list below it)
@@ -223,6 +233,7 @@ class phpickle_read_ops
 			$name = $stream->get_line();
 			$obj = new stdClass();
 			$obj->__python_class__ = $module.".".$name;
+			$obj->__python_pickle_op__ = "GLOBAL";
 			$stack->push($obj);
 			if ($debug)
 			{
@@ -290,6 +301,7 @@ class phpickle_read_ops
 			$name = $stream->get_line();
 			$cl = new stdClass;
 			$cl->__python_class__  = $module.".".$name;
+			$obj->__python_pickle_op__ = "INST";
 			
 			$args = $stack->pop_until_mark();
 			$cl->__python_construct_args__ = $args;

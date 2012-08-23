@@ -1,5 +1,5 @@
 <?php
-include "../phpickle_ops_generator.php";
+require_once "../phpickle_ops_generator.php";
 
 class phpickle_ops_generatorTest extends PHPUnit_Framework_TestCase
 {

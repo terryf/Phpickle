@@ -35,6 +35,20 @@ class phpickle_write_ops
 			
 
 		}
+		// generated for OP: TRUE
+		function op_TRUE($value, &$stream, $stack, $memo, $debug, $mapper)
+		{
+			$stream->write($mapper->str2bin("TRUE"));
+			
+
+		}
+		// generated for OP: FALSE
+		function op_FALSE($value, &$stream, $stack, $memo, $debug, $mapper)
+		{
+			$stream->write($mapper->str2bin("FALSE"));
+			
+
+		}
 		// generated for OP: FLOAT	// ( push float object; decimal string argument)
 		function op_FLOAT($value, &$stream, $stack, $memo, $debug, $mapper)
 		{
@@ -119,7 +133,7 @@ class phpickle_write_ops
 		function op_STRING($value, &$stream, $stack, $memo, $debug, $mapper)
 		{
 			$stream->write($mapper->str2bin("STRING"));
-			$stream->write_line("\"".addcslashes($value)."\"");
+			$stream->write_line("'".addcslashes($value, "'")."'");
 			
 
 		}
@@ -218,7 +232,7 @@ class phpickle_write_ops
 		function op_BINGET($value, &$stream, $stack, $memo, $debug, $mapper)
 		{
 			$stream->write($mapper->str2bin("BINGET"));
-			$stream->write(ord($value));
+			$stream->write(pack("C", $value));
 			
 
 		}

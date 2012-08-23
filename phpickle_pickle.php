@@ -24,11 +24,15 @@ class phpickle_pickle
 		$this->_stack = new phpickle_stack();
 		$this->_memo = new phpickle_memo();
 		$this->_mapper = new phpickle_op_mapper();
-		$this->_proto = $proto == -1 ? 3 : 0;
+		$this->_proto = ($proto == -1 ? 2 : $proto);
+
+		if ($this->_proto >= 2)
+		{
+			$this->_call_op("PROTO", 2, $this->_stream);
+		}
 
 		$this->_pickle($data, $this->_stream);
-
-		return $this->_stream->get_contents();
+		return $this->_stream->get_contents().".";
 	}
 
 	private function _pickle($data, &$stream)
@@ -56,6 +60,18 @@ class phpickle_pickle
 
 	private function _pickle_integer($data, &$stream)
 	{
+		if ($this->_proto >= 1 && $data >= 0 && $data <= 0xffff)
+		{
+			if ($data <= 0xff)
+			{
+				$this->_call_op("BININT1", $data, $stream);
+			}
+			else
+			{
+				$this->_call_op("BININT2", $data, $stream);
+			}
+		}
+		else
 		if ($this->_proto >= 2)
 		{
 			$this->_call_op("LONG1", $data, $stream);
@@ -63,25 +79,11 @@ class phpickle_pickle
 		else
 		if ($this->_proto >= 1)
 		{
-			if ($data >= 0 && $data <= 0xffff)
-			{
-				if ($data <= 0xff)
-				{
-					$this->_call_op("BININT1", $data, $stream);
-				}
-				else
-				{
-					$this->_call_op("BININT2", $data, $stream);
-				}
-			}
-			else
-			{
-				$this->_call_op("BININT", $data, $stream);
-			}
+			$this->_call_op("BININT", $data, $stream);
 		}
 		else
 		{
-			$this->_call_op("LONG", $data, $stream);
+			$this->_call_op("INT", $data, $stream);
 		}
 	}
 
@@ -115,11 +117,34 @@ class phpickle_pickle
 		{
 			if ($this->_proto > 0)
 			{
-				$this->_call_op("BINUNICODE", $data, $stream);
+				if (($idx = $this->_memo->has($data)) !== false)
+				{
+					$this->_call_op("BINGET", $idx, $stream);
+				}
+				else
+				{
+					if (strlen($data) < 0xff)
+					{
+						$this->_call_op("SHORT_BINSTRING", $data, $stream);
+					}
+					else
+					{
+						$this->_call_op("BINSTRING", $data, $stream);
+					}
+					$this->_call_op("BINPUT", $this->_memo->put($data), $stream);
+				}
 			}
 			else
 			{
-				$this->_call_op("UNICODE", $data, $stream);
+				if (($idx = $this->_memo->has($data)) !== false)
+				{
+					$this->_call_op("GET", $idx, $stream);
+				}
+				else
+				{
+					$this->_call_op("STRING", $data, $stream);
+					$this->_call_op("PUT", $this->_memo->put($data), $stream);
+				}
 			}
 		}
 	}
@@ -143,10 +168,12 @@ class phpickle_pickle
 		{
 			$this->_call_op("MARK", null, $stream);
 			$this->_call_op("LIST", null, $stream);
+			$this->_call_op("PUT", $this->_memo->put(array()), $stream);
 		}
 		else
 		{
 			$this->_call_op("EMPTY_LIST", null, $stream);
+			$this->_call_op("BINPUT", $this->_memo->put(array()), $stream);
 			$this->_call_op("MARK", null, $stream);
 		}
 		foreach($data as $v)
@@ -170,11 +197,16 @@ class phpickle_pickle
 		{
 			$this->_call_op("MARK", null, $stream);
 			$this->_call_op("DICT", null, $stream);
+			$this->_call_op("PUT", $this->_memo->put(array()), $stream);
 		}
 		else
 		{
 			$this->_call_op("EMPTY_DICT", null, $stream);
-			$this->_call_op("MARK", null, $stream);
+			$this->_call_op("BINPUT", $this->_memo->put(array()), $stream);
+			if (count($data) > 1)
+			{
+				$this->_call_op("MARK", null, $stream);
+			}
 		}
 		foreach($data as $k => $v)
 		{
@@ -185,9 +217,16 @@ class phpickle_pickle
 				$this->_call_op("SETITEM", null, $stream);
 			}
 		}
-		if ($this->_proto > 0)
+		if ($this->_proto > 0 && count($data) > 0)
 		{
-			$this->_call_op("SETITEMS", null, $stream);
+			if (count($data) == 1)
+			{
+				$this->_call_op("SETITEM", null, $stream);
+			}
+			else
+			{
+				$this->_call_op("SETITEMS", null, $stream);
+			}
 		}
 	}
 
@@ -196,6 +235,46 @@ class phpickle_pickle
 	{
 		// if unpickled from python object, then try to reconstruct the original stream
 		// else just forget it
+		if (isset($data->__python_class__))
+		{
+			if ($data->__python_pickle_op__ == "GLOBAL")
+			{
+				$this->_call_op("GLOBAL", $data, $stream);
+			}
+			else
+			{
+				// INST
+				$this->_call_op("MARK", null, $stream);
+				if (is_array($data->__python_construct_args__))
+				{
+					foreach($data->__python_construct_args__ as $v)
+					{
+						$this->_pickle($v, $stream);
+					}
+				}
+				$this->_call_op("INST", $data, $stream);
+			}
+			// now, if the object has other properties, then add them as dict and then BUILD
+			$d = get_object_vars($data);
+			unset($d["__python_class__"]);
+			unset($d["__python_pickle_op__"]);
+			unset($d["__python_construct_args__"]);
+			if (count($d) > 0)
+			{
+				$this->_pickle_dict($d, $stream);
+				$this->_call_op("BUILD", $data, $stream);
+			}
+		}
+		else
+		{
+			// regular php object, serialize to dict
+			$d = array();
+			foreach($data as $k => $v)
+			{
+				$d[$k] = $v;
+			}
+			return $this->_pickle_dict($d, $stream);
+		}
 	}
 
 	private function _pickle_resource($data, &$stream)
@@ -219,7 +298,7 @@ class phpickle_pickle
 		$num = 0;
 		foreach($array as $k => $v)
 		{
-			if ($k != $num)
+			if ($k !== $num)
 			{
 				return true;
 			}
@@ -230,7 +309,7 @@ class phpickle_pickle
 
 	private function _str_has_bin($str)
 	{
-		return ctype_print($str);
+		$r = ctype_print($str);
+		return !$r;
 	}
 }
-

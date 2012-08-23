@@ -1,7 +1,7 @@
 
-Phpickle is a set of PHP classes that allow you to read (and in the future, write) the python pickle format. 
-
-Currently only reading is supported and class based items are pretty much ignored, but lists, tuples, dicts and simpler data types should be supported.
+Phpickle is a set of PHP classes that allow you to read and write the python pickle format. 
+It is useful for integrating python and php applications together, for example to read django
+session data from a php application. 
 
 ==============Basic usage:
 
@@ -32,6 +32,15 @@ $data = phpickle::loads_django_session($data_from_django_session_db);
 ---
 
 
+If you want to pickle data, then:
+
+---
+require_once "phpickle.php";
+
+$string = phpickle::dumps($data_to_pickle);
+---
+
+
 ===============Current status:
 
 Well, unpickling simple types, lists, tuples, dicts, ints, double, strings works.
@@ -48,7 +57,10 @@ Of course, referencing really python specific things, line REDUCE op that gives 
 cannot be supported. 
 
 
-Pickling is not done at all, but should be possible for at least simple types. 
+Pickling support is there for simple types and arrays. Experimental support for objects is also there. 
+Pickling back from previously unpickled data should produce the same result most of the time, but needs 
+better test coverage. 
+
 
 
 ===============Code setup:

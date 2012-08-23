@@ -1,5 +1,5 @@
 <?php
-include "../phpickle_stream.php";
+require_once "../phpickle_stream.php";
 
 class phpickle_streamTest extends PHPUnit_Framework_TestCase
 {

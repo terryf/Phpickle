@@ -99,6 +99,10 @@ class phpickle_stream
 			return false;
 		}
 		$this->_update_pos();
+		if ($num == 0)
+		{
+			throw new Exception("phpickle_stream::get_bytes(0)!");
+		}
 		return fread($this->handle, $num);
 	}
 
@@ -124,7 +128,7 @@ class phpickle_stream
 			return false;
 		}
 		$this->_update_pos();
-		return fwrite($this->handle, $str."\r\n");
+		return fwrite($this->handle, $str."\n");
 	}
 
 	public function eof()

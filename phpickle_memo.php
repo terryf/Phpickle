@@ -17,4 +17,16 @@ class phpickle_memo
 	{
 		return $this->data[$k];
 	}
+
+	public function put($v)
+	{
+		$rv = count($this->data);
+		$this->data[] = $v;
+		return $rv;
+	}
+
+	public function has($value)
+	{
+		return array_search($value, $this->data);
+	}
 }

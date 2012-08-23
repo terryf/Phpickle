@@ -26,6 +26,14 @@ OP: DUP	// ( duplicate top stack item)
 $stack->push($stack->get_top());
 --write:
 
+OP: TRUE
+-- read:
+--write:
+
+OP: FALSE
+-- read:
+--write:
+
 OP: FLOAT	// ( push float object; decimal string argument)
 -- read:
 $stack->push(floatval($stream->get_line()));
@@ -145,7 +153,7 @@ if ($debug)
 	echo "STRING: pushed($s) \r\n";
 }
 --write:
-$stream->write_line("\"".addcslashes($value)."\"");
+$stream->write_line("'".addcslashes($value, "'")."'");
 
 OP: BINSTRING	// ( push string; counted binary string argument)
 -- read:
@@ -181,7 +189,7 @@ OP: BINUNICODE	// (   "     "       "  ; counted UTF-8 string argument)
 -- read:
 $av = unpack("Lval", $stream->get_bytes(4));
 $len = $av["val"];
-$stack->push($stream->get_bytes($len));
+$stack->push($len > 0 ? $stream->get_bytes($len) : "");
 --write:
 $len = strlen($value);
 $stream->write(pack("L", $len));
@@ -217,6 +225,7 @@ $module = $stream->get_line();
 $name = $stream->get_line();
 $obj = new stdClass();
 $obj->__python_class__ = $module.".".$name;
+$obj->__python_pickle_op__ = "GLOBAL";
 $stack->push($obj);
 if ($debug)
 {
@@ -275,7 +284,7 @@ OP: BINGET	// (   "    "    "    "   "   "  ;   "    " 1-byte arg)
 $index = ord($stream->get_byte());
 $stack->push($memo->get($index));
 --write:
-$stream->write(ord($value));
+$stream->write(pack("C", $value));
 
 OP: INST	// ( build & push class instance)
 -- read:
@@ -283,6 +292,7 @@ $module = $stream->get_line();
 $name = $stream->get_line();
 $cl = new stdClass;
 $cl->__python_class__  = $module.".".$name;
+$obj->__python_pickle_op__ = "INST";
 
 $args = $stack->pop_until_mark();
 $cl->__python_construct_args__ = $args;

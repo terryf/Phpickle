@@ -33,7 +33,7 @@ class phpickle_stack
 		$len = count($this->s);
 		for ($i = ($len-1); $i >= 0; $i--)
 		{
-			if (is_object($this->s[$i]) && $this->s[$i]->__mark__ == 1)
+			if (is_object($this->s[$i]) && isset($this->s[$i]->__mark__) && $this->s[$i]->__mark__ == 1)
 			{
 				$rv = array_slice($this->s, $i+1);
 				array_splice($this->s, $i);

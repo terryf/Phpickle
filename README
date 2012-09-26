@@ -1,4 +1,4 @@
-
+!
 Phpickle is a set of PHP classes that allow you to read and write the python 
 pickle format. It is useful for integrating python and php applications together, 
 for example to read django session data from a php application. 

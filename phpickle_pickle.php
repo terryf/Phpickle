@@ -237,7 +237,7 @@ class phpickle_pickle
 		// else just forget it
 		if (isset($data->__python_class__))
 		{
-			if ($data->__python_pickle_op__ == "GLOBAL")
+			if (isset($data->__python_pickle_op__) && $data->__python_pickle_op__ == "GLOBAL")
 			{
 				$this->_call_op("GLOBAL", $data, $stream);
 			}

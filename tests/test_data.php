@@ -7,10 +7,12 @@ class test_data
 		$inst = new stdClass();
 		$i2 = new stdClass();
 		$i2->__python_class__ = "__main__.test";
+                $i2->__python_pickle_op__ = "INST";
 		$i2->__python_construct_args__ = array();
 		$i2->b = "in f";
 	
 		$inst->__python_class__ = "__main__.test";
+		$inst->__python_pickle_op__ = "INST";
 		$inst->__python_construct_args__ = array();
 		$inst->a = 5;
 		$inst->c = array(1,2,3,4,5,6);
@@ -59,6 +61,7 @@ class test_data
 		/*39*/	array("}q\x00(U\x01aq\x01U(sdoikjasdlkjaslkjaslkjalskdjalskdjalsdkjq\x02K\x01K\x02K\x03K\x04K\x05K\x06u.", array(1 => 2, 3 => 4, 5 => 6, "a" => "sdoikjasdlkjaslkjaslkjalskdjalskdjalsdkj"), 1),
 		/*40*/	array("\x80\x02}q\x00(U\x01aq\x01U(sdoikjasdlkjaslkjaslkjalskdjalskdjalsdkjq\x02K\x01K\x02K\x03K\x04K\x05K\x06u.", array(1 => 2, 3 => 4, 5 => 6, "a" => "sdoikjasdlkjaslkjaslkjalskdjalskdjalsdkj"),2),
 		/*41*/	array("(i__main__\ntest\np0\n(dp1\nS'a'\np2\nI5\nsS'c'\np3\n(I1\nI2\nI3\nI4\nI5\nI6\ntp4\nsS'b'\np5\ng2\nsS'ref'\np6\n(i__main__\ntest\np7\n(dp8\ng5\nS'in f'\np9\nsbsb.", $inst, 0),
+		/*42*/  array("\x80\x02U\x00q\x00.", "", 2)
 		);
 	}
 }

@@ -94,15 +94,15 @@ class phpickle_stream
 
 	public function get_bytes($num)
 	{
+		if ($num == 0) 
+		{
+			return "";
+		}
 		if (!$this->handle)
 		{
 			return false;
 		}
 		$this->_update_pos();
-		if ($num == 0)
-		{
-			throw new Exception("phpickle_stream::get_bytes(0)!");
-		}
 		return fread($this->handle, $num);
 	}
 

@@ -292,7 +292,7 @@ $module = $stream->get_line();
 $name = $stream->get_line();
 $cl = new stdClass;
 $cl->__python_class__  = $module.".".$name;
-$obj->__python_pickle_op__ = "INST";
+$cl->__python_pickle_op__ = "INST";
 
 $args = $stack->pop_until_mark();
 $cl->__python_construct_args__ = $args;
